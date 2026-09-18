@@ -8,7 +8,8 @@
 # Why variables and not secrets? With OIDC there is no credential to protect —
 # client/tenant/subscription IDs are identifiers, and possessing them grants nothing
 # without a matching federation subject. The security boundary is the federation:
-# it names YOUR fork, so only workflows running in YOUR fork can exchange tokens.
+# it binds both the names and immutable GitHub IDs of YOUR fork, so only workflows
+# running in that exact repository can exchange tokens.
 #
 # Why never arm the upstream repo? On a public repo, the pull_request OIDC subject
 # matches PRs from ANY fork, and pull_request runs the workflow file AS MODIFIED BY
@@ -28,8 +29,12 @@ APP_OBJ=$(az ad app show --id "$APP_ID" --query id -o tsv)
 az ad sp create --id "$APP_ID" --output none 2>/dev/null || true
 SP_ID=$(az ad sp show --id "$APP_ID" --query id -o tsv)
 
-echo ">> Federated credentials for repo:${GH_USER}/${REPO} (pull_request + main)"
-for sub in "repo:${GH_USER}/${REPO}:pull_request|pr" "repo:${GH_USER}/${REPO}:ref:refs/heads/main|main"; do
+GH_OWNER_ID=$(gh api "repos/${GH_USER}/${REPO}" --jq '.owner.id')
+GH_REPO_ID=$(gh api "repos/${GH_USER}/${REPO}" --jq '.id')
+OIDC_REPOSITORY="${GH_USER}@${GH_OWNER_ID}/${REPO}@${GH_REPO_ID}"
+
+echo ">> Federated credentials for repo:${OIDC_REPOSITORY} (pull_request + main)"
+for sub in "repo:${OIDC_REPOSITORY}:pull_request|pr" "repo:${OIDC_REPOSITORY}:ref:refs/heads/main|main"; do
   SUBJECT="${sub%|*}"; NAME="${sub#*|}"
   az ad app federated-credential create --id "$APP_OBJ" --parameters "{
     \"name\": \"${REPO}-${NAME}\",
