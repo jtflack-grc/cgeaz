@@ -39,7 +39,7 @@ for sub in "repo:${GH_USER}/${REPO}:pull_request|pr" "repo:${GH_USER}/${REPO}:re
   }" --output none 2>/dev/null || echo "   (${REPO}-${NAME} already exists)"
 done
 
-echo ">> Roles: candidate-defined plan reader at mg-grc + scoped data-plane reads"
+echo ">> Roles: read-only planning at mg-grc + resource-scoped sensitive refresh actions"
 ROLE_NAME="CGE-AZ Terraform Plan Reader"
 ROLE_ID=$(az role definition list --name "$ROLE_NAME" --query '[0].name' -o tsv)
 if [ -z "$ROLE_ID" ]; then
@@ -47,11 +47,9 @@ if [ -z "$ROLE_ID" ]; then
   cat > "$ROLE_FILE" <<EOF
 {
   "Name": "$ROLE_NAME",
-  "Description": "Read governance resources for Terraform plans, plus the minimum list actions required to refresh managed service configuration.",
+  "Description": "Read governance resources for Terraform plans without write or secret-retrieval actions.",
   "Actions": [
-    "*/read",
-    "Microsoft.Storage/storageAccounts/listKeys/action",
-    "Microsoft.Web/sites/config/list/action"
+    "*/read"
   ],
   "NotActions": [],
   "DataActions": [],
@@ -64,6 +62,48 @@ EOF
 fi
 az role assignment create --assignee-object-id "$SP_ID" --assignee-principal-type ServicePrincipal \
   --role "$ROLE_ID" --scope "/providers/Microsoft.Management/managementGroups/mg-grc" --output none 2>/dev/null || true
+
+# The AzureRM provider must refresh the two Functions' runtime configuration. Those
+# operations can disclose runtime storage keys/app settings, so never grant them at
+# management-group or resource-group scope. Define them once, then assign only on the
+# exact four plumbing resources that require them.
+SENSITIVE_ROLE_NAME="CGE-AZ Terraform Sensitive Refresh Reader"
+SENSITIVE_ROLE_ID=$(az role definition list --name "$SENSITIVE_ROLE_NAME" --query '[0].name' -o tsv)
+if [ -z "$SENSITIVE_ROLE_ID" ]; then
+  SENSITIVE_ROLE_FILE=$(mktemp)
+  cat > "$SENSITIVE_ROLE_FILE" <<EOF
+{
+  "Name": "$SENSITIVE_ROLE_NAME",
+  "Description": "Resource-scoped provider refresh actions for Function plumbing; never assign above an individual resource.",
+  "Actions": [
+    "Microsoft.Storage/storageAccounts/listKeys/action",
+    "Microsoft.Web/sites/config/list/action"
+  ],
+  "NotActions": [],
+  "DataActions": [],
+  "NotDataActions": [],
+  "AssignableScopes": ["/providers/Microsoft.Management/managementGroups/mg-grc"]
+}
+EOF
+  SENSITIVE_ROLE_ID=$(az role definition create --role-definition "$SENSITIVE_ROLE_FILE" --query name -o tsv)
+  rm -f "$SENSITIVE_ROLE_FILE"
+fi
+
+mapfile -t SENSITIVE_RESOURCE_IDS < <(
+  az storage account list --resource-group rg-grc-evidence-dev \
+    --query "[?starts_with(name, 'stgrcfunc') || starts_with(name, 'stgrcrpt')].id" -o tsv
+  az functionapp list --resource-group rg-grc-evidence-dev --query '[].id' -o tsv
+)
+
+if [ "${#SENSITIVE_RESOURCE_IDS[@]}" -ne 4 ]; then
+  echo "Expected two runtime storage accounts and two Function Apps; refusing a broader fallback." >&2
+  exit 1
+fi
+
+for RESOURCE_ID in "${SENSITIVE_RESOURCE_IDS[@]}"; do
+  az role assignment create --assignee-object-id "$SP_ID" --assignee-principal-type ServicePrincipal \
+    --role "$SENSITIVE_ROLE_ID" --scope "$RESOURCE_ID" --output none 2>/dev/null || true
+done
 az role assignment create --assignee-object-id "$SP_ID" --assignee-principal-type ServicePrincipal \
   --role "Storage Blob Data Contributor" \
   --scope "/subscriptions/$SUB_ID/resourceGroups/rg-grc-tfstate" --output none 2>/dev/null || true
