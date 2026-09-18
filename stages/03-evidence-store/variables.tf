@@ -15,6 +15,12 @@ variable "owner_email" {
   type        = string
 }
 
+variable "collector_schedule" {
+  description = "Azure Functions NCRONTAB cadence. Fifteen minutes produces genuine scheduled run history during the bounded assessment window."
+  type        = string
+  default     = "0 */15 * * * *"
+}
+
 variable "state_resource_group" {
   description = "Resource group holding the Terraform state storage account (from bootstrap.sh)."
   type        = string
