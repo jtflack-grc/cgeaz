@@ -24,3 +24,7 @@ artifacts are operating-effectiveness evidence.
 Evidence must be redacted before publication. Subscription IDs, tenant IDs, object
 IDs, function keys, access tokens, and personal billing information do not belong in
 this repository.
+
+Synthetic records may be used for immediate report-format testing only and must be
+marked as synthetic. EV-05 is satisfied only by distinct runs emitted by the deployed
+timer; manual or seeded records do not count as operating-effectiveness evidence.
