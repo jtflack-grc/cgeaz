@@ -1,6 +1,6 @@
 """CGE-AZ pipeline — Stage 3 collector.
 
-Timer fires nightly -> managed identity -> Defender assessments API -> Cosmos.
+Timer fires on the configured cadence -> managed identity -> Defender assessments API -> Cosmos.
 One immutable document per assessment per collection run. The document ID includes
 the run ID, preserving historical posture instead of overwriting yesterday with
 today. Deliberately boring: if you can read this file, you can defend this
@@ -93,9 +93,9 @@ def _collect() -> dict:
     return {"runId": run_id, "written": written, "collectedAt": collected_at}
 
 
-@app.timer_trigger(schedule="0 0 5 * * *", arg_name="timer", run_on_startup=False)
-def collect_nightly(timer: func.TimerRequest) -> None:
-    """Nightly sweep at 05:00 UTC — midnight-ish US Eastern."""
+@app.timer_trigger(schedule="%COLLECT_SCHEDULE%", arg_name="timer", run_on_startup=False)
+def collect_scheduled(timer: func.TimerRequest) -> None:
+    """Scheduled sweep; cadence is an audited deployment setting."""
     _collect()
 
 
