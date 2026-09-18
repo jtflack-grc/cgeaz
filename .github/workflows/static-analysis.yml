@@ -60,6 +60,8 @@ jobs:
       - name: Python syntax
         run: python -m compileall -q functions labs/04-evidence
       - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   checkov:
     runs-on: ubuntu-latest
