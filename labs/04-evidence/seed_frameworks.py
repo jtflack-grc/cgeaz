@@ -16,7 +16,7 @@ import os
 import sys
 
 from azure.cosmos import CosmosClient
-from azure.identity import DefaultAzureCredential
+from azure.identity import AzureCliCredential
 
 CSF2_FUNCTIONS = {
     "GV": ("Govern", ["GV.OC", "GV.RM", "GV.RR", "GV.PO", "GV.OV", "GV.SC"]),
@@ -69,7 +69,10 @@ def main() -> int:
         print("Set COSMOS_ENDPOINT (see docstring).", file=sys.stderr)
         return 1
 
-    database = CosmosClient(endpoint, DefaultAzureCredential()).get_database_client(
+    # This is an operator-side seed utility, not an Azure workload. Be explicit so
+    # Cloud Shell's restricted managed identity cannot shadow the authenticated
+    # human Azure CLI session. Deployed Functions continue to use managed identity.
+    database = CosmosClient(endpoint, AzureCliCredential()).get_database_client(
         os.environ.get("COSMOS_DATABASE", "grc")
     )
     container = database.get_container_client("frameworks")
