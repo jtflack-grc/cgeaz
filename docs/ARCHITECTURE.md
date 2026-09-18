@@ -13,7 +13,7 @@ resulting narrative.
 | Collector managed identity | Subscription + Cosmos account | Read Defender assessments; append evidence | Policy writes, resource writes, report publication |
 | Reporter managed identity | Cosmos account + evidence storage | Read stored evidence; write immutable reports | Live Azure posture reads, Cosmos writes, remediation |
 | Remediation user-assigned identity | Sandbox management group | Monitoring configuration and approved storage-property correction | Data reads, general Contributor, Owner |
-| GitHub OIDC service principal | Sandbox management group + state/evidence data scopes | Terraform refresh/plan, state access, evidence-container reads | Apply, RBAC writes, secrets, interactive login |
+| GitHub OIDC service principal | Sandbox management group + state/evidence data scopes + four exact runtime resources | Terraform refresh/plan, state access, evidence-container reads; key/config refresh only on the two runtime accounts and two Function Apps | Apply, RBAC writes, broad secret reads, interactive login |
 | Human owner | Subscription | Authorize changes and respond to exceptions | Exemption from logging or drift detection |
 
 ## Evidence lifecycle
