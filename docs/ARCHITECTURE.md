@@ -18,7 +18,9 @@ resulting narrative.
 
 ## Evidence lifecycle
 
-1. Defender and Azure Policy evaluate live resources.
+1. Defender and Azure Policy evaluate live resources. During the bounded assessment
+   window, the collector runs every fifteen minutes so operating history is produced
+   by the deployed timer rather than by a burst of manual demonstrations.
 2. The collector obtains a short-lived token through managed identity.
 3. A sweep receives a UUID `runId` and UTC `collectedAt` timestamp.
 4. Each document ID hashes the run, assessment, and resource. Repeated assessments
