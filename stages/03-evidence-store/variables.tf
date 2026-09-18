@@ -10,6 +10,11 @@ variable "environment" {
   default     = "dev"
 }
 
+variable "owner_email" {
+  description = "Accountable owner stamped into each collected evidence document."
+  type        = string
+}
+
 variable "state_resource_group" {
   description = "Resource group holding the Terraform state storage account (from bootstrap.sh)."
   type        = string

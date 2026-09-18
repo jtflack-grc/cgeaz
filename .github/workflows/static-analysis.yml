@@ -1,0 +1,71 @@
+name: static-analysis
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        stage: [01-foundation, 02-activation, 03-evidence-store, 04-reporting, 06-enforcement]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+      - uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: v0.59.1
+      - name: format
+        run: terraform fmt -check -recursive stages
+      - name: validate
+        working-directory: stages/${{ matrix.stage }}
+        run: |
+          terraform init -backend=false -input=false
+          terraform validate
+      - name: tflint
+        working-directory: stages/${{ matrix.stage }}
+        run: tflint --init && tflint --format compact
+
+  policy-and-secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: install conftest 0.62.0
+        run: |
+          curl --fail --silent --show-error --location \
+            https://github.com/open-policy-agent/conftest/releases/download/v0.62.0/conftest_0.62.0_Linux_x86_64.tar.gz \
+            --output /tmp/conftest.tar.gz
+          tar --no-same-owner -xzf /tmp/conftest.tar.gz -C /tmp conftest
+          sudo install /tmp/conftest /usr/local/bin/conftest
+      - name: prove policy allows compliant plan
+        run: conftest test policy/tests/good-plan.json --policy policy
+      - name: prove policy blocks unsafe plan
+        run: |
+          if conftest test policy/tests/bad-plan.json --policy policy; then
+            echo "Unsafe fixture unexpectedly passed"
+            exit 1
+          fi
+      - name: Python syntax
+        run: python -m compileall -q functions labs/04-evidence
+      - uses: gitleaks/gitleaks-action@v2
+
+  checkov:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: install Checkov
+        run: pip install --disable-pip-version-check checkov==3.2.482
+      - name: scan Terraform
+        run: checkov --directory stages --framework terraform --compact --quiet --skip-download

@@ -1,4 +1,4 @@
-# Three policies, one initiative, assigned once at mg-grc-sandbox.
+# Four policies, one initiative, assigned once at mg-grc-sandbox.
 # Every subscription that ever joins the sandbox group inherits all of it. (CSF: GV.PO, PR.DS, PR.PS)
 
 # --- 1. Require the `env` tag on resource groups (inventory hygiene; POA&M owner resolution) ---
@@ -19,7 +19,7 @@ resource "azurerm_policy_definition" "require_env_tag" {
   })
 
   policy_rule = jsonencode({
-    if = {
+    "if" = {
       allOf = [
         { field = "type", equals = "Microsoft.Resources/subscriptions/resourceGroups" },
         { field = "tags['env']", exists = "false" }
@@ -29,7 +29,51 @@ resource "azurerm_policy_definition" "require_env_tag" {
   })
 }
 
-# --- 2. Deny public blob access on storage accounts (clear-cut, framework-mandated: earned Deny) ---
+# --- 2. Candidate control: require an accountable owner on every resource group ---
+# This is intentionally separate from the generic env tag. An environment label
+# classifies a resource; an owner establishes who must answer for its risk, exception,
+# evidence, and POA&M items.
+
+resource "azurerm_policy_definition" "require_owner_tag" {
+  name                = "cge-require-owner-tag-rg"
+  display_name        = "Resource groups must identify an accountable owner"
+  description         = "Candidate-authored control that makes control and POA&M accountability machine-testable."
+  policy_type         = "Custom"
+  mode                = "All"
+  management_group_id = azurerm_management_group.sandbox.id
+
+  parameters = jsonencode({
+    effect = {
+      type          = "String"
+      allowedValues = ["Audit", "Deny", "Disabled"]
+      defaultValue  = "Audit"
+    }
+  })
+
+  metadata = jsonencode({
+    category  = "Governance"
+    controlId = "CGE-AZ-JF-001"
+    owner     = var.owner_email
+    mappings  = ["NIST-CSF-2.0:GV.RR", "NIST-CSF-2.0:ID.AM", "NIST-800-53:PM-5", "NIST-800-53:CM-8"]
+  })
+
+  policy_rule = jsonencode({
+    "if" = {
+      allOf = [
+        { field = "type", equals = "Microsoft.Resources/subscriptions/resourceGroups" },
+        {
+          anyOf = [
+            { field = "tags['owner']", exists = "false" },
+            { field = "tags['owner']", equals = "" }
+          ]
+        }
+      ]
+    }
+    then = { effect = "[parameters('effect')]" }
+  })
+}
+
+# --- 3. Deny public blob access on storage accounts (clear-cut, framework-mandated: earned Deny) ---
 
 resource "azurerm_policy_definition" "deny_public_blob" {
   name                = "cge-deny-public-blob"
@@ -47,7 +91,7 @@ resource "azurerm_policy_definition" "deny_public_blob" {
   })
 
   policy_rule = jsonencode({
-    if = {
+    "if" = {
       allOf = [
         { field = "type", equals = "Microsoft.Storage/storageAccounts" },
         { field = "Microsoft.Storage/storageAccounts/allowBlobPublicAccess", equals = "true" }
@@ -57,7 +101,7 @@ resource "azurerm_policy_definition" "deny_public_blob" {
   })
 }
 
-# --- 3. deployIfNotExists: storage accounts missing diagnostic settings get them, routed to the GRC workspace ---
+# --- 4. deployIfNotExists: storage accounts missing diagnostic settings get them, routed to the GRC workspace ---
 # Logging that enforces its own coverage. Remediation runs AS the identity in identity.tf.
 
 resource "azurerm_policy_definition" "storage_diagnostics" {
@@ -75,7 +119,7 @@ resource "azurerm_policy_definition" "storage_diagnostics" {
   })
 
   policy_rule = jsonencode({
-    if = {
+    "if" = {
       field  = "type"
       equals = "Microsoft.Storage/storageAccounts"
     }
@@ -139,6 +183,7 @@ resource "azurerm_management_group_policy_set_definition" "grc_baseline" {
 
   parameters = jsonencode({
     tagEffect        = { type = "String", defaultValue = "Audit" }
+    ownerTagEffect   = { type = "String", defaultValue = "Audit" }
     publicBlobEffect = { type = "String", defaultValue = "Deny" }
     workspaceId      = { type = "String" }
   })
@@ -147,6 +192,14 @@ resource "azurerm_management_group_policy_set_definition" "grc_baseline" {
     policy_definition_id = azurerm_policy_definition.require_env_tag.id
     parameter_values = jsonencode({
       effect = { value = "[parameters('tagEffect')]" }
+    })
+  }
+
+
+  policy_definition_reference {
+    policy_definition_id = azurerm_policy_definition.require_owner_tag.id
+    parameter_values = jsonencode({
+      effect = { value = "[parameters('ownerTagEffect')]" }
     })
   }
 
@@ -174,6 +227,7 @@ resource "azurerm_management_group_policy_assignment" "grc_baseline" {
 
   parameters = jsonencode({
     tagEffect        = { value = var.tag_policy_effect }
+    ownerTagEffect   = { value = var.owner_tag_policy_effect }
     publicBlobEffect = { value = var.public_blob_policy_effect }
     workspaceId      = { value = azurerm_log_analytics_workspace.grc.id }
   })

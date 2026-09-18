@@ -10,6 +10,7 @@ HTTP triggers for labs and demos.
 """
 
 import datetime
+import hashlib
 import io
 import json
 import logging
@@ -62,9 +63,10 @@ def _unhealthy(cosmos, run_id):
     )
 
 
-def _dated_path(prefix: str, ext: str) -> str:
+def _dated_path(prefix: str, ext: str, run_id: str | None) -> str:
     now = datetime.datetime.now(datetime.timezone.utc)
-    return f"{prefix}/{now:%Y/%m}/{prefix}-{now:%Y-%m-%d}.{ext}"
+    trace = (run_id or "no-evidence")[:8]
+    return f"{prefix}/{now:%Y/%m}/{prefix}-{now:%Y-%m-%dT%H%M%SZ}-{trace}.{ext}"
 
 
 def generate_poam() -> dict:
@@ -91,7 +93,7 @@ def generate_poam() -> dict:
             "severity": severity,
             "detectedRun": run_id,
             "scheduledCompletion": due.isoformat(),
-            "owner": "resource-group owner tag",  # resolved during Domain 5's lab extension
+            "owner": f.get("owner") or "Unassigned",
             "status": "Open",
         }
         rows.append(row)
@@ -99,12 +101,27 @@ def generate_poam() -> dict:
 
     xlsx = io.BytesIO()
     wb.save(xlsx)
-    xlsx_path = _dated_path("poam", "xlsx")
-    json_path = _dated_path("poam", "json")
+    xlsx_path = _dated_path("poam", "xlsx", run_id)
+    json_path = _dated_path("poam", "json", run_id)
+    generated_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    payload = {
+        "evidenceLedger": {
+            "source": "Cosmos DB grc/assessments",
+            "sourceRunId": run_id,
+            "sourceCollectedAt": collected_at,
+            "generatedAt": generated_at,
+            "query": "runId = sourceRunId AND status = Unhealthy",
+            "findingCount": len(rows),
+        },
+        "items": rows,
+    }
+    payload["evidenceLedger"]["itemsSha256"] = hashlib.sha256(
+        json.dumps(rows, sort_keys=True).encode()
+    ).hexdigest()
     blobs.upload_blob(xlsx_path, xlsx.getvalue(), overwrite=False)
     blobs.upload_blob(
         json_path,
-        json.dumps({"runId": run_id, "collectedAt": collected_at, "items": rows}, indent=2),
+        json.dumps(payload, indent=2),
         overwrite=False,
     )
     logging.info("POA&M: %d items -> %s", len(rows), xlsx_path)
@@ -137,7 +154,17 @@ def generate_sar() -> dict:
             "",
         ]
 
-    path = _dated_path("sar", "md")
+    lines += [
+        "## Evidence Ledger",
+        "",
+        "- Source: `Cosmos DB grc/assessments`",
+        f"- Source run: `{run_id}`",
+        f"- Source collected: `{collected_at}`",
+        "- Query: `runId = sourceRunId AND status = Unhealthy`",
+        "",
+    ]
+
+    path = _dated_path("sar", "md", run_id)
     blobs.upload_blob(path, "\n".join(lines), overwrite=False)
     logging.info("SAR: %d findings -> %s", len(findings), path)
     return {"findings": len(findings), "runId": run_id, "path": path}

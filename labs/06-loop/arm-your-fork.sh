@@ -39,13 +39,37 @@ for sub in "repo:${GH_USER}/${REPO}:pull_request|pr" "repo:${GH_USER}/${REPO}:re
   }" --output none 2>/dev/null || echo "   (${REPO}-${NAME} already exists)"
 done
 
-echo ">> Roles: Contributor at mg-grc (plan/refresh needs list-keys + config reads;"
-echo "   Contributor cannot write RBAC) + blob data on the state RG"
+echo ">> Roles: candidate-defined plan reader at mg-grc + scoped data-plane reads"
+ROLE_NAME="CGE-AZ Terraform Plan Reader"
+ROLE_ID=$(az role definition list --name "$ROLE_NAME" --query '[0].name' -o tsv)
+if [ -z "$ROLE_ID" ]; then
+  ROLE_FILE=$(mktemp)
+  cat > "$ROLE_FILE" <<EOF
+{
+  "Name": "$ROLE_NAME",
+  "Description": "Read governance resources for Terraform plans, plus the minimum list actions required to refresh managed service configuration.",
+  "Actions": [
+    "*/read",
+    "Microsoft.Storage/storageAccounts/listKeys/action",
+    "Microsoft.Web/sites/config/list/action"
+  ],
+  "NotActions": [],
+  "DataActions": [],
+  "NotDataActions": [],
+  "AssignableScopes": ["/providers/Microsoft.Management/managementGroups/mg-grc"]
+}
+EOF
+  ROLE_ID=$(az role definition create --role-definition "$ROLE_FILE" --query name -o tsv)
+  rm -f "$ROLE_FILE"
+fi
 az role assignment create --assignee-object-id "$SP_ID" --assignee-principal-type ServicePrincipal \
-  --role "Contributor" --scope "/providers/Microsoft.Management/managementGroups/mg-grc" --output none 2>/dev/null || true
+  --role "$ROLE_ID" --scope "/providers/Microsoft.Management/managementGroups/mg-grc" --output none 2>/dev/null || true
 az role assignment create --assignee-object-id "$SP_ID" --assignee-principal-type ServicePrincipal \
   --role "Storage Blob Data Contributor" \
   --scope "/subscriptions/$SUB_ID/resourceGroups/rg-grc-tfstate" --output none 2>/dev/null || true
+az role assignment create --assignee-object-id "$SP_ID" --assignee-principal-type ServicePrincipal \
+  --role "Storage Blob Data Reader" \
+  --scope "/subscriptions/$SUB_ID/resourceGroups/rg-grc-evidence-dev" --output none 2>/dev/null || true
 
 STATE_SA=$(grep storage_account_name "$(dirname "$0")/../03-foundation/backend.hcl" 2>/dev/null | tr -d ' "' | cut -d= -f2 || echo "<from backend.hcl>")
 

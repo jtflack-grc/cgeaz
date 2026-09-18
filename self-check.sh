@@ -31,6 +31,27 @@ for d in stages/*/; do
   fi
 done
 
+if command -v tflint >/dev/null 2>&1; then
+  for d in stages/*/; do
+    name=$(basename "$d")
+    if (cd "$d" && tflint --init >/dev/null 2>&1 && tflint --format compact >/dev/null 2>&1); then
+      ok "tflint: $name"
+    else
+      bad "tflint fails: $name"
+    fi
+  done
+else
+  bad "tflint is required for the capstone self-check"
+fi
+
+if command -v checkov >/dev/null 2>&1; then
+  checkov --directory stages --framework terraform --compact --quiet --skip-download >/dev/null 2>&1 \
+    && ok "checkov: Terraform scan clean" \
+    || bad "checkov reports Terraform findings"
+else
+  bad "checkov is required for the capstone self-check"
+fi
+
 echo "== Evidence integrity config =="
 grep -rq "azurerm_storage_container_immutability_policy" stages/ \
   && ok "WORM immutability policy present" \
@@ -41,6 +62,12 @@ grep -rq "shared_access_key_enabled *= *false" stages/ \
 grep -rq "runId" functions/collect_assessments/*.py \
   && ok "collector stamps run lineage" \
   || bad "collector has no runId stamping"
+grep -q 'f"{run_id}|' functions/collect_assessments/function_app.py \
+  && ok "assessment IDs preserve history across collection runs" \
+  || bad "assessment IDs can overwrite historical runs"
+grep -q 'f.get("owner")' functions/reports/function_app.py \
+  && ok "POA&M owner resolves from stored evidence" \
+  || bad "POA&M owner is not sourced from stored evidence"
 
 echo "== Identity design =="
 if grep -rqE 'role_definition_name *= *"(Owner|Contributor)"' stages/; then
@@ -57,10 +84,21 @@ echo "== Operations =="
 [ -f .github/workflows/drift.yml ] && ok "drift workflow present" || bad "drift workflow missing"
 ls policy/*.rego >/dev/null 2>&1 && ok "OPA gate rules present" || bad "no policy/*.rego rules"
 if command -v conftest >/dev/null 2>&1; then
-  echo "  (tip: prove the gate blocks — plan a public storage account and conftest it)"
+  conftest test policy/tests/good-plan.json -p policy >/dev/null 2>&1 \
+    && ok "OPA permits the compliant fixture" \
+    || bad "OPA rejects the compliant fixture"
+  if conftest test policy/tests/bad-plan.json -p policy >/dev/null 2>&1; then
+    bad "OPA permits the deliberately unsafe fixture"
+  else
+    ok "OPA blocks the deliberately unsafe fixture"
+  fi
 else
-  echo "  (conftest not installed locally — CI still runs it)"
+  bad "conftest is required for the capstone self-check"
 fi
+
+python3 -m compileall -q functions labs/04-evidence \
+  && ok "Python sources compile" \
+  || bad "Python syntax validation fails"
 
 echo "== Secrets (auto-fail trigger) =="
 if command -v gitleaks >/dev/null 2>&1; then
@@ -70,7 +108,7 @@ if command -v gitleaks >/dev/null 2>&1; then
     bad "gitleaks found potential secrets — fix and rotate BEFORE submitting"
   fi
 else
-  echo "  (gitleaks not installed — the grader WILL run it; brew install gitleaks)"
+  bad "gitleaks is required for the capstone self-check"
 fi
 
 echo

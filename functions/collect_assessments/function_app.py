@@ -1,9 +1,10 @@
 """CGE-AZ pipeline — Stage 3 collector.
 
 Timer fires nightly -> managed identity -> Defender assessments API -> Cosmos.
-One document per assessment per run, upserted on a deterministic ID so re-runs
-refresh instead of duplicate. Deliberately boring: if you can read this file,
-you can defend this pipeline's data lineage.
+One immutable document per assessment per collection run. The document ID includes
+the run ID, preserving historical posture instead of overwriting yesterday with
+today. Deliberately boring: if you can read this file, you can defend this
+pipeline's data lineage.
 """
 
 import datetime
@@ -58,9 +59,11 @@ def _collect() -> dict:
                 props.get("resourceDetails", {}).get("Id")
                 or props.get("resourceDetails", {}).get("id", "")
             )
-            # Deterministic ID: same assessment+resource upserts, never duplicates.
+            # Deterministic *within this run*, historical across runs. This prevents
+            # a retry inside one sweep from duplicating evidence while ensuring the
+            # next scheduled sweep cannot overwrite the prior posture snapshot.
             doc_id = hashlib.sha256(
-                f"{assessment['name']}|{resource_id}".encode()
+                f"{run_id}|{assessment['name']}|{resource_id}".encode()
             ).hexdigest()[:32]
 
             container.upsert_item(
@@ -74,6 +77,10 @@ def _collect() -> dict:
                     "severity": props.get("metadata", {}).get("severity"),
                     "categories": props.get("metadata", {}).get("categories"),
                     "resourceId": resource_id,
+                    # Accountability is captured with the evidence, not invented
+                    # later by the report generator. OWNER_EMAIL is the governed
+                    # environment owner supplied through Terraform.
+                    "owner": os.environ.get("OWNER_EMAIL", "Unassigned"),
                     "collectedAt": collected_at,
                     "runId": run_id,
                 }
