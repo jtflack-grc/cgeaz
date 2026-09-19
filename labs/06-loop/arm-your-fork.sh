@@ -22,6 +22,7 @@ GH_USER="${1:?usage: ./arm-your-fork.sh <your-github-username-or-org>}"
 REPO="${2:-cgeaz}"
 SUB_ID=$(az account show --query id -o tsv)
 TENANT_ID=$(az account show --query tenantId -o tsv)
+DEPLOYER_OBJECT_ID=$(az ad signed-in-user show --query id -o tsv)
 
 echo ">> App registration: github-${REPO}-${GH_USER}"
 APP_ID=$(az ad app create --display-name "github-${REPO}-${GH_USER}" --query appId -o tsv)
@@ -68,10 +69,9 @@ fi
 az role assignment create --assignee-object-id "$SP_ID" --assignee-principal-type ServicePrincipal \
   --role "$ROLE_ID" --scope "/providers/Microsoft.Management/managementGroups/mg-grc" --output none 2>/dev/null || true
 
-# The AzureRM provider must refresh the two Functions' runtime configuration. Those
-# operations can disclose runtime storage keys/app settings, so never grant them at
-# management-group or resource-group scope. Define them once, then assign only on the
-# exact four plumbing resources that require them.
+# The AzureRM provider must refresh the two Functions' runtime configuration and the
+# Cosmos account's generated credentials. Those operations can disclose storage keys,
+# app settings, or database credentials, so assign them only on the exact resources.
 SENSITIVE_ROLE_NAME="CGE-AZ Terraform Sensitive Refresh Reader"
 SENSITIVE_ROLE_ID=$(az role definition list --name "$SENSITIVE_ROLE_NAME" --query '[0].name' -o tsv)
 if [ -z "$SENSITIVE_ROLE_ID" ]; then
@@ -79,10 +79,13 @@ if [ -z "$SENSITIVE_ROLE_ID" ]; then
   cat > "$SENSITIVE_ROLE_FILE" <<EOF
 {
   "Name": "$SENSITIVE_ROLE_NAME",
-  "Description": "Resource-scoped provider refresh actions for Function plumbing; never assign above an individual resource.",
+  "Description": "Resource-scoped provider refresh actions for Function and Cosmos plumbing; never assign above an individual resource.",
   "Actions": [
     "Microsoft.Storage/storageAccounts/listKeys/action",
-    "Microsoft.Web/sites/config/list/action"
+    "Microsoft.Web/sites/config/list/action",
+    "Microsoft.DocumentDB/databaseAccounts/listKeys/action",
+    "Microsoft.DocumentDB/databaseAccounts/readonlykeys/action",
+    "Microsoft.DocumentDB/databaseAccounts/listConnectionStrings/action"
   ],
   "NotActions": [],
   "DataActions": [],
@@ -98,10 +101,12 @@ mapfile -t SENSITIVE_RESOURCE_IDS < <(
   az storage account list --resource-group rg-grc-evidence-dev \
     --query "[?starts_with(name, 'stgrcfunc') || starts_with(name, 'stgrcrpt')].id" -o tsv
   az functionapp list --resource-group rg-grc-evidence-dev --query '[].id' -o tsv
+  az cosmosdb list --resource-group rg-grc-evidence-dev \
+    --query "[?starts_with(name, 'cosmos-grc-evidence')].id" -o tsv
 )
 
-if [ "${#SENSITIVE_RESOURCE_IDS[@]}" -ne 4 ]; then
-  echo "Expected two runtime storage accounts and two Function Apps; refusing a broader fallback." >&2
+if [ "${#SENSITIVE_RESOURCE_IDS[@]}" -ne 5 ]; then
+  echo "Expected two runtime storage accounts, two Function Apps, and one Cosmos account; refusing a broader fallback." >&2
   exit 1
 fi
 
@@ -120,7 +125,7 @@ STATE_SA=$(grep storage_account_name "$(dirname "$0")/../03-foundation/backend.h
 
 cat <<EOF
 
-Done. Add these five VARIABLES (not secrets — see header comment) in YOUR fork:
+Done. Add these six VARIABLES (not secrets — see header comment) in YOUR fork:
 Settings -> Secrets and variables -> Actions -> Variables -> New repository variable
 
   AZURE_CLIENT_ID        $APP_ID
@@ -128,6 +133,7 @@ Settings -> Secrets and variables -> Actions -> Variables -> New repository vari
   AZURE_SUBSCRIPTION_ID  $SUB_ID
   STATE_STORAGE_ACCOUNT  $STATE_SA
   OWNER_EMAIL            <your email>
+  DEPLOYER_OBJECT_ID     $DEPLOYER_OBJECT_ID
 
 Then enable the two workflows in your fork's Actions tab. Never add these to the
 upstream GRCEngClub/cgeaz repo — its workflows are intentionally unarmed.

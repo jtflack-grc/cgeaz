@@ -24,7 +24,7 @@ ARM = "https://management.azure.com"
 API_VERSION = "2021-06-01"
 
 
-def _collect() -> dict:
+def _collect(trigger: str) -> dict:
     subscription_id = os.environ["SUBSCRIPTION_ID"]
     cosmos_endpoint = os.environ["COSMOS_ENDPOINT"]
     database = os.environ["COSMOS_DATABASE"]
@@ -69,6 +69,7 @@ def _collect() -> dict:
             container.upsert_item(
                 {
                     "id": doc_id,
+                    "documentType": "assessment",
                     "subscriptionId": subscription_id,
                     "assessmentId": assessment["name"],
                     "displayName": props.get("displayName"),
@@ -83,26 +84,45 @@ def _collect() -> dict:
                     "owner": os.environ.get("OWNER_EMAIL", "Unassigned"),
                     "collectedAt": collected_at,
                     "runId": run_id,
+                    "trigger": trigger,
                 }
             )
             written += 1
 
         url = payload.get("nextLink")
 
-    logging.info("collection run %s complete: %d documents", run_id, written)
+    # A completed-run ledger proves the scheduled control operated even when the
+    # upstream Defender API legitimately returns zero assessments. It never invents
+    # a finding: the source count and trigger type remain explicit.
+    completed_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    container.upsert_item(
+        {
+            "id": hashlib.sha256(f"{run_id}|collection-run".encode()).hexdigest()[:32],
+            "documentType": "collectionRun",
+            "subscriptionId": subscription_id,
+            "runId": run_id,
+            "trigger": trigger,
+            "sourceAssessmentCount": written,
+            "source": f"{ARM}/subscriptions/{subscription_id}/providers/Microsoft.Security/assessments",
+            "collectedAt": collected_at,
+            "completedAt": completed_at,
+        }
+    )
+
+    logging.info("collection run %s complete: %d assessments", run_id, written)
     return {"runId": run_id, "written": written, "collectedAt": collected_at}
 
 
 @app.timer_trigger(schedule="%COLLECT_SCHEDULE%", arg_name="timer", run_on_startup=False)
 def collect_scheduled(timer: func.TimerRequest) -> None:
     """Scheduled sweep; cadence is an audited deployment setting."""
-    _collect()
+    _collect("scheduled")
 
 
 @app.route(route="collect", auth_level=func.AuthLevel.FUNCTION)
 def collect_now(req: func.HttpRequest) -> func.HttpResponse:
     """Manual trigger for labs and demos: hit the endpoint, get the run summary."""
-    result = _collect()
+    result = _collect("manual")
     return func.HttpResponse(
         f"run {result['runId']}: {result['written']} documents at {result['collectedAt']}\n",
         status_code=200,

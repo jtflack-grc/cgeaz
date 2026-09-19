@@ -24,7 +24,7 @@ and it's a first-class criterion on the capstone rubric.
 | Cosmos DB (assessments / frameworks / populated mappings) | Owned evidence schema; collect once, crosswalk to CSF 2.0 and 800-53 Rev. 5 | GV.OV, ID.RA |
 | WORM immutability policy on `reports` | Artifacts tamper-proof by platform guarantee | PR.DS |
 | Shared keys disabled + data-plane RBAC | Identity or nothing; no credentials to steal or rotate | PR.AA |
-| Collector Function (Security Reader + Cosmos write only) | Run-scoped historical control-test capture with lineage and stored accountability; cannot alter what it observes | DE.CM, ID.RA |
+| Collector Function (Security Reader + Cosmos write only) | Run-scoped historical control-test capture plus a scheduled/manual run ledger with explicit source counts; cannot alter what it observes | DE.CM, ID.RA |
 | Collector/reporter identity split | The recorder of facts cannot author the narrative — SoD by role scopes | PR.AA, GV.RR |
 
 ## Stage 04 — Reporting
