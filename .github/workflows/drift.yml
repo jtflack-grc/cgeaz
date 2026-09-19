@@ -50,7 +50,7 @@ jobs:
         run: |
           cat > labs/03-foundation/backend.hcl <<EOF
           resource_group_name  = "rg-grc-tfstate"
-          storage_account_name = "${STATE_STORAGE_ACCOUNT}"
+          storage_account_name = "${TF_VAR_state_storage_account}"
           container_name       = "tfstate"
           EOF
 
