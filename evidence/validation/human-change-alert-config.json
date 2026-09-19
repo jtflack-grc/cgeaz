@@ -1,0 +1,60 @@
+{
+  "actions": {
+    "actionGroups": [
+      "/subscriptions/[REDACTED-SUBSCRIPTION]/resourceGroups/rg-grc-sandbox-dev/providers/Microsoft.Insights/actionGroups/ag-cge-az-governance"
+    ],
+    "customProperties": {}
+  },
+  "autoMitigate": false,
+  "checkWorkspaceAlertsStorageConfigured": false,
+  "createdWithApiVersion": "2023-03-15-preview",
+  "criteria": {
+    "allOf": [
+      {
+        "dimensions": [],
+        "failingPeriods": null,
+        "metricMeasureColumn": null,
+        "metricName": null,
+        "operator": "GreaterThan",
+        "query": "AzureActivity\n| where CategoryValue =~ \"Administrative\"\n| where ActivityStatusValue =~ \"Success\"\n| where Caller =~ \"[REDACTED-HUMAN-OPERATOR]\"\n| where OperationNameValue endswith \"/write\" or OperationNameValue endswith \"/delete\"\n| summarize ChangeCount=count()\n",
+        "resourceIdColumn": null,
+        "threshold": 0.0,
+        "timeAggregation": "Count"
+      }
+    ]
+  },
+  "description": "Detect successful administrative writes performed directly by the accountable human owner.",
+  "displayName": null,
+  "enabled": true,
+  "etag": null,
+  "evaluationFrequency": "0:05:00",
+  "id": "/subscriptions/[REDACTED-SUBSCRIPTION]/resourceGroups/rg-grc-sandbox-dev/providers/microsoft.insights/scheduledqueryrules/alert-cge-az-human-change",
+  "isLegacyLogAnalyticsRule": null,
+  "isWorkspaceAlertsStorageConfigured": null,
+  "kind": "LogAlert",
+  "location": "eastus",
+  "muteActionsDuration": null,
+  "name": "alert-cge-az-human-change",
+  "overrideQueryTimeRange": null,
+  "resourceGroup": "rg-grc-sandbox-dev",
+  "scopes": [
+    "/subscriptions/[REDACTED-SUBSCRIPTION]/resourceGroups/rg-grc-sandbox-dev/providers/Microsoft.OperationalInsights/workspaces/law-grc-sandbox"
+  ],
+  "severity": 2,
+  "skipQueryValidation": false,
+  "systemData": {
+    "createdAt": "2026-09-18T18:22:25.691407+00:00",
+    "createdBy": "[REDACTED-HUMAN-OPERATOR]",
+    "createdByType": "User",
+    "lastModifiedAt": "2026-09-18T18:22:25.691407+00:00",
+    "lastModifiedBy": "[REDACTED-HUMAN-OPERATOR]",
+    "lastModifiedByType": "User"
+  },
+  "tags": {
+    "env": "dev",
+    "purpose": "out-of-band-change-tripwire"
+  },
+  "targetResourceTypes": null,
+  "type": "Microsoft.Insights/scheduledQueryRules",
+  "windowSize": "0:05:00"
+}

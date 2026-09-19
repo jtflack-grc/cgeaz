@@ -1,0 +1,20 @@
+[
+  {
+    "complianceState": "NonCompliant",
+    "policyAssignment": "cge-grc-baseline",
+    "resource": "/subscriptions/[REDACTED-GUID]/resourcegroups/rg-grc-tfstate",
+    "timestamp": "2026-09-18T20:36:08.240971+00:00"
+  },
+  {
+    "complianceState": "Compliant",
+    "policyAssignment": "cge-grc-baseline",
+    "resource": "/subscriptions/[REDACTED-GUID]/resourcegroups/rg-grc-sandbox-dev",
+    "timestamp": "2026-09-18T20:36:08.239249+00:00"
+  },
+  {
+    "complianceState": "Compliant",
+    "policyAssignment": "cge-grc-baseline",
+    "resource": "/subscriptions/[REDACTED-GUID]/resourcegroups/rg-grc-evidence-dev",
+    "timestamp": "2026-09-18T20:36:08.237446+00:00"
+  }
+]

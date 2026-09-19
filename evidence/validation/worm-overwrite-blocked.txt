@@ -1,0 +1,8 @@
+Test: overwrite an existing retained POA&M report
+Blob: poam/2026/09/poam-2026-09-19T030606Z-39fca055.json
+Exit code: 1
+ERROR: This operation is not permitted as the blob is immutable due to a policy.
+RequestId:[REDACTED-GUID]
+Time:2026-09-19T03:27:14.0103775Z
+ErrorCode:BlobImmutableDueToPolicy
+If you want to overwrite the existing one, please add --overwrite in your command.
