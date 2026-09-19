@@ -1,0 +1,88 @@
+[
+  {
+    "identity": "collector-function",
+    "principalId": "[REDACTED-OBJECT-ID]",
+    "role": "Security Reader",
+    "scope": "/subscriptions/[REDACTED-SUBSCRIPTION]"
+  },
+  {
+    "identity": "collector-function",
+    "principalId": "[REDACTED-OBJECT-ID]",
+    "role": "Cosmos DB Built-in Data Contributor",
+    "scope": "/subscriptions/[REDACTED-SUBSCRIPTION]/resourceGroups/rg-grc-evidence-dev/providers/Microsoft.DocumentDB/databaseAccounts/cosmos-grc-evidence-eden5n",
+    "accessPlane": "Cosmos DB SQL data plane"
+  },
+  {
+    "identity": "github-oidc",
+    "principalId": "[REDACTED-OBJECT-ID]",
+    "role": "CGE-AZ Terraform Plan Reader",
+    "scope": "/providers/Microsoft.Management/managementGroups/mg-grc"
+  },
+  {
+    "identity": "github-oidc",
+    "principalId": "[REDACTED-OBJECT-ID]",
+    "role": "Storage Blob Data Reader",
+    "scope": "/subscriptions/[REDACTED-SUBSCRIPTION]/resourceGroups/rg-grc-evidence-dev"
+  },
+  {
+    "identity": "github-oidc",
+    "principalId": "[REDACTED-OBJECT-ID]",
+    "role": "CGE-AZ Terraform Sensitive Refresh Reader",
+    "scope": "/subscriptions/[REDACTED-SUBSCRIPTION]/resourceGroups/rg-grc-evidence-dev/providers/Microsoft.DocumentDB/databaseAccounts/cosmos-grc-evidence-eden5n"
+  },
+  {
+    "identity": "github-oidc",
+    "principalId": "[REDACTED-OBJECT-ID]",
+    "role": "CGE-AZ Terraform Sensitive Refresh Reader",
+    "scope": "/subscriptions/[REDACTED-SUBSCRIPTION]/resourceGroups/rg-grc-evidence-dev/providers/Microsoft.Storage/storageAccounts/stgrcfunceden5n"
+  },
+  {
+    "identity": "github-oidc",
+    "principalId": "[REDACTED-OBJECT-ID]",
+    "role": "CGE-AZ Terraform Sensitive Refresh Reader",
+    "scope": "/subscriptions/[REDACTED-SUBSCRIPTION]/resourceGroups/rg-grc-evidence-dev/providers/Microsoft.Storage/storageAccounts/stgrcrptotlvs7"
+  },
+  {
+    "identity": "github-oidc",
+    "principalId": "[REDACTED-OBJECT-ID]",
+    "role": "CGE-AZ Terraform Sensitive Refresh Reader",
+    "scope": "/subscriptions/[REDACTED-SUBSCRIPTION]/resourceGroups/rg-grc-evidence-dev/providers/Microsoft.Web/sites/func-grc-collectors-eden5n"
+  },
+  {
+    "identity": "github-oidc",
+    "principalId": "[REDACTED-OBJECT-ID]",
+    "role": "CGE-AZ Terraform Sensitive Refresh Reader",
+    "scope": "/subscriptions/[REDACTED-SUBSCRIPTION]/resourceGroups/rg-grc-evidence-dev/providers/Microsoft.Web/sites/func-grc-reporting-otlvs7"
+  },
+  {
+    "identity": "github-oidc",
+    "principalId": "[REDACTED-OBJECT-ID]",
+    "role": "Storage Blob Data Contributor",
+    "scope": "/subscriptions/[REDACTED-SUBSCRIPTION]/resourceGroups/rg-grc-tfstate"
+  },
+  {
+    "identity": "remediation-identity",
+    "principalId": "[REDACTED-OBJECT-ID]",
+    "role": "Monitoring Contributor",
+    "scope": "/providers/Microsoft.Management/managementGroups/mg-grc-sandbox"
+  },
+  {
+    "identity": "remediation-identity",
+    "principalId": "[REDACTED-OBJECT-ID]",
+    "role": "Storage Account Contributor",
+    "scope": "/providers/Microsoft.Management/managementGroups/mg-grc-sandbox"
+  },
+  {
+    "identity": "reporting-function",
+    "principalId": "[REDACTED-OBJECT-ID]",
+    "role": "Cosmos DB Built-in Data Reader",
+    "scope": "/subscriptions/[REDACTED-SUBSCRIPTION]/resourceGroups/rg-grc-evidence-dev/providers/Microsoft.DocumentDB/databaseAccounts/cosmos-grc-evidence-eden5n",
+    "accessPlane": "Cosmos DB SQL data plane"
+  },
+  {
+    "identity": "reporting-function",
+    "principalId": "[REDACTED-OBJECT-ID]",
+    "role": "Storage Blob Data Contributor",
+    "scope": "/subscriptions/[REDACTED-SUBSCRIPTION]/resourceGroups/rg-grc-evidence-dev/providers/Microsoft.Storage/storageAccounts/stgrcevideden5n"
+  }
+]

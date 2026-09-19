@@ -1,0 +1,13 @@
+{
+  "createdOn": "2026-09-19T03:48:33.162355+00:00",
+  "deploymentStatus": {
+    "failedDeployments": 0,
+    "successfulDeployments": 1,
+    "totalDeployments": 1
+  },
+  "lastUpdatedOn": "2026-09-19T03:48:52.626801+00:00",
+  "name": "cgeaz-remediation-existing-20260919034831",
+  "policyAssignmentId": "/providers/microsoft.management/managementgroups/mg-grc-sandbox/providers/microsoft.authorization/policyassignments/cge-fix-public-blob",
+  "provisioningState": "Succeeded",
+  "resourceDiscoveryMode": "ExistingNonCompliant"
+}

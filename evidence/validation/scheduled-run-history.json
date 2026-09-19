@@ -1,0 +1,16 @@
+[
+  {
+    "runId": "39fca055-59a7-4c31-81d6-8c672e2c264e",
+    "trigger": "scheduled",
+    "sourceAssessmentCount": 0,
+    "collectedAt": "2026-09-19T03:00:00.040981+00:00",
+    "completedAt": "2026-09-19T03:00:07.129351+00:00"
+  },
+  {
+    "runId": "53ac225f-fc93-431c-8249-19740c5b0552",
+    "trigger": "scheduled",
+    "sourceAssessmentCount": 0,
+    "collectedAt": "2026-09-19T02:45:00.387457+00:00",
+    "completedAt": "2026-09-19T02:45:12.358762+00:00"
+  }
+]

@@ -1,9 +1,10 @@
 """CGE-AZ pipeline — Stage 3 collector.
 
-Timer fires nightly -> managed identity -> Defender assessments API -> Cosmos.
-One document per assessment per run, upserted on a deterministic ID so re-runs
-refresh instead of duplicate. Deliberately boring: if you can read this file,
-you can defend this pipeline's data lineage.
+Timer fires on the configured cadence -> managed identity -> Defender assessments API -> Cosmos.
+One immutable document per assessment per collection run. The document ID includes
+the run ID, preserving historical posture instead of overwriting yesterday with
+today. Deliberately boring: if you can read this file, you can defend this
+pipeline's data lineage.
 """
 
 import datetime
@@ -23,7 +24,7 @@ ARM = "https://management.azure.com"
 API_VERSION = "2021-06-01"
 
 
-def _collect() -> dict:
+def _collect(trigger: str) -> dict:
     subscription_id = os.environ["SUBSCRIPTION_ID"]
     cosmos_endpoint = os.environ["COSMOS_ENDPOINT"]
     database = os.environ["COSMOS_DATABASE"]
@@ -58,14 +59,17 @@ def _collect() -> dict:
                 props.get("resourceDetails", {}).get("Id")
                 or props.get("resourceDetails", {}).get("id", "")
             )
-            # Deterministic ID: same assessment+resource upserts, never duplicates.
+            # Deterministic *within this run*, historical across runs. This prevents
+            # a retry inside one sweep from duplicating evidence while ensuring the
+            # next scheduled sweep cannot overwrite the prior posture snapshot.
             doc_id = hashlib.sha256(
-                f"{assessment['name']}|{resource_id}".encode()
+                f"{run_id}|{assessment['name']}|{resource_id}".encode()
             ).hexdigest()[:32]
 
             container.upsert_item(
                 {
                     "id": doc_id,
+                    "documentType": "assessment",
                     "subscriptionId": subscription_id,
                     "assessmentId": assessment["name"],
                     "displayName": props.get("displayName"),
@@ -74,28 +78,51 @@ def _collect() -> dict:
                     "severity": props.get("metadata", {}).get("severity"),
                     "categories": props.get("metadata", {}).get("categories"),
                     "resourceId": resource_id,
+                    # Accountability is captured with the evidence, not invented
+                    # later by the report generator. OWNER_EMAIL is the governed
+                    # environment owner supplied through Terraform.
+                    "owner": os.environ.get("OWNER_EMAIL", "Unassigned"),
                     "collectedAt": collected_at,
                     "runId": run_id,
+                    "trigger": trigger,
                 }
             )
             written += 1
 
         url = payload.get("nextLink")
 
-    logging.info("collection run %s complete: %d documents", run_id, written)
+    # A completed-run ledger proves the scheduled control operated even when the
+    # upstream Defender API legitimately returns zero assessments. It never invents
+    # a finding: the source count and trigger type remain explicit.
+    completed_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    container.upsert_item(
+        {
+            "id": hashlib.sha256(f"{run_id}|collection-run".encode()).hexdigest()[:32],
+            "documentType": "collectionRun",
+            "subscriptionId": subscription_id,
+            "runId": run_id,
+            "trigger": trigger,
+            "sourceAssessmentCount": written,
+            "source": f"{ARM}/subscriptions/{subscription_id}/providers/Microsoft.Security/assessments",
+            "collectedAt": collected_at,
+            "completedAt": completed_at,
+        }
+    )
+
+    logging.info("collection run %s complete: %d assessments", run_id, written)
     return {"runId": run_id, "written": written, "collectedAt": collected_at}
 
 
-@app.timer_trigger(schedule="0 0 5 * * *", arg_name="timer", run_on_startup=False)
-def collect_nightly(timer: func.TimerRequest) -> None:
-    """Nightly sweep at 05:00 UTC — midnight-ish US Eastern."""
-    _collect()
+@app.timer_trigger(schedule="%COLLECT_SCHEDULE%", arg_name="timer", run_on_startup=False)
+def collect_scheduled(timer: func.TimerRequest) -> None:
+    """Scheduled sweep; cadence is an audited deployment setting."""
+    _collect("scheduled")
 
 
 @app.route(route="collect", auth_level=func.AuthLevel.FUNCTION)
 def collect_now(req: func.HttpRequest) -> func.HttpResponse:
     """Manual trigger for labs and demos: hit the endpoint, get the run summary."""
-    result = _collect()
+    result = _collect("manual")
     return func.HttpResponse(
         f"run {result['runId']}: {result['written']} documents at {result['collectedAt']}\n",
         status_code=200,

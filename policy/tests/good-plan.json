@@ -1,0 +1,28 @@
+{
+  "format_version": "1.2",
+  "resource_changes": [
+    {
+      "address": "azurerm_storage_account.evidence",
+      "type": "azurerm_storage_account",
+      "name": "evidence",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "allow_nested_items_to_be_public": false,
+          "shared_access_key_enabled": false
+        }
+      }
+    },
+    {
+      "address": "azurerm_subscription_policy_assignment.nist_csf_20",
+      "type": "azurerm_subscription_policy_assignment",
+      "name": "nist_csf_20",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "name": "nist-csf-20"
+        }
+      }
+    }
+  ]
+}

@@ -21,6 +21,7 @@ env:
   ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
   TF_VAR_state_storage_account: ${{ vars.STATE_STORAGE_ACCOUNT }}
   TF_VAR_owner_email: ${{ vars.OWNER_EMAIL }}
+  TF_VAR_deployer_object_id: ${{ vars.DEPLOYER_OBJECT_ID }}
 
 jobs:
   drift:
@@ -34,7 +35,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        stage: [01-foundation, 03-evidence-store, 04-reporting, 06-enforcement]
+        stage: [01-foundation, 02-activation, 03-evidence-store, 04-reporting, 06-enforcement]
     steps:
       - uses: actions/checkout@v4
 
@@ -45,6 +46,14 @@ jobs:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: write ephemeral backend configuration
+        run: |
+          cat > labs/03-foundation/backend.hcl <<EOF
+          resource_group_name  = "rg-grc-tfstate"
+          storage_account_name = "${TF_VAR_state_storage_account}"
+          container_name       = "tfstate"
+          EOF
 
       - name: plan with detailed exit code
         id: plan

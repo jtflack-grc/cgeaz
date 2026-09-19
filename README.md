@@ -1,64 +1,84 @@
-# CGE-AZ Pipeline Starter
+# CGE-AZ Capstone — John Flack
 
-The lab and capstone repo for **CGE-AZ: Certified GRC Engineer — Azure Specialty**
-(GRC Engineering Club Training Academy).
+This repository implements a small Azure governance system whose purpose is not to
+display cloud resources, but to produce defensible control evidence. It discovers
+security posture, preserves each collection run, maps one body of evidence to
+multiple frameworks, generates traceable reports, detects unreviewed change, and
+remediates an approved class of failure through a named identity.
 
-Over six labs you build a complete, automated GRC engineering pipeline in your own
-Azure subscription:
+The project began from the GRC Engineering Club starter and has been materially
+extended for this capstone. Candidate-authored work includes an owner-accountability
+control (`CGE-AZ-JF-001`), historical assessment preservation, populated CSF/800-53
+crosswalks, evidence-ledger hashes in reports, stored-evidence owner resolution, a
+deployed human-change tripwire, complete Stage 02 CI/drift coverage, and a narrowed
+GitHub OIDC plan role.
 
-```
-1 Discovery → 2 Activation → 3 Evidence Store → 4 Reporting → 5 Narrative → 6 Enforcement ↺
-   detect        enable         Cosmos + WORM      SAR/POA&M      AI digest     Azure Policy
-   what runs     what's         Blob + collector   OSCAL SSP      (describes,   + remediation
-                 missing        Functions          from the       never         identity
-                                                   store ONLY     decides)
-```
+## Architecture
 
-Automated, continuous, defensible, self-correcting. Most tooling reports findings —
-this pipeline reports them **and fixes them**, and every fix shows up, documented, in
-the next collection.
-
-## Start here
-
-1. **[docs/SETUP.md](docs/SETUP.md)** — one-time setup (free account, providers,
-   regional quirks, cost guardrails). Do not skip it.
-2. **labs/01-sandbox → labs/06-loop** — one lab per course domain, in order.
-3. **[docs/VALIDATION-LOG.md](docs/VALIDATION-LOG.md)** — every lab was run end-to-end
-   on a brand-new free account before shipping; this is what broke and how the labs
-   route around it. If a step surprises you, look here first.
-
-## Layout
-
-```
-stages/     one directory per pipeline stage — each a Terraform root module with its own state
-functions/  the collector and report generators (Python, timer-triggered, managed identity)
-labs/       the six lab guides + helper scripts
-policy/     OPA/conftest rules that gate this repo's own changes
-docs/       setup guide, architecture, control mappings, validation log
-.github/    the compliance gate (PR) and drift detection (nightly)
+```mermaid
+flowchart TD
+    A[Azure Policy and Defender] -->|managed identity reads| B[Nightly collector]
+    B -->|append-only run evidence| C[(Cosmos evidence store)]
+    C -->|read-only reporting identity| D[POA&M and SAR generators]
+    D -->|immutable artifacts| E[(WORM Blob container)]
+    F[GitHub pull request] -->|OIDC plan + OPA rules| G[Compliance gate]
+    H[Human Azure write] -->|Activity Log + KQL alert| I[Out-of-band tripwire]
+    J[Approved remediation] -->|named identity| A
 ```
 
-## The rules the repo lives by
+See [Architecture and trust boundaries](docs/ARCHITECTURE.md) for the data flow,
+identity matrix, escalation ladder, and teardown boundary.
 
-- **Discovers first, then acts.** Stage one changes nothing; activation closes only
-  the measured gap.
-- **Collect once.** One assessment document serves every framework through the
-  mappings crosswalk.
-- **Reports read from Cosmos only.** Every number is a fact with a receipt.
-- **Zero keys.** Managed identity end to end; the evidence store disables shared keys
-  entirely.
-- **Automation acts; humans authorize.** Escalation (audit → dry-run → enforce) is a
-  reviewed one-line diff.
-- **Changes go through the repo, never the portal.** The drift detectors are watching —
-  that's the point of them.
+## Control objectives
 
-## Capstone
+| Objective | Implementation | Primary evidence |
+|---|---|---|
+| Prevent public evidence exposure | Deny policy plus OPA storage rules | Blocked Azure request and blocked PR |
+| Establish accountability | Candidate control requires non-empty resource-group `owner` tags | Policy compliance state and stored owner |
+| Preserve assessment history | Run-scoped document IDs; no cross-run upsert collision | Multiple Cosmos documents for the same assessment |
+| Make reports reproducible | Reports pin a collection run and embed a source query and SHA-256 digest | POA&M JSON evidence ledger and SAR |
+| Separate collection from narration | Collector writes evidence; reporter can only read Cosmos and write reports | Azure role assignments and managed identities |
+| Detect unreviewed change | Nightly Terraform drift plus five-minute human-write log alert | Workflow history, issue, and Azure Monitor alert |
+| Constrain automated correction | Audit → dry-run → enforce ladder using a named remediation identity | Reviewed diff, remediation task, and Activity Log caller |
 
-Your graded capstone is this pipeline, running in your subscription, from your fork,
-with your own modifications. Rubric and submission checklist: `docs/RUBRIC.md`
-(published with the course). Stage 5 is optional — extra credit if present, zero
-penalty if absent.
+Full mappings are in [Control mappings](docs/CONTROLS.md). Operational proof is
+indexed in [Evidence register](docs/EVIDENCE.md).
 
----
+## Deployment order
 
-*Built by the community, for the community · www.grcengclub.com*
+Each directory is an independent Terraform root with remote, versioned state:
+
+1. `stages/01-foundation` — hierarchy, policies, identities, Activity Log, tripwire
+2. `stages/02-activation` — discovery and bounded Defender/CSF activation
+3. `stages/03-evidence-store` — Cosmos, collector, and WORM report storage
+4. `stages/04-reporting` — separately identified POA&M and SAR generator
+5. `stages/06-enforcement` — controlled remediation ladder
+
+Stage 05 is intentionally absent. Generative narrative is not necessary to prove the
+control loop, and the capstone keeps decision authority in deterministic controls.
+
+## Assurance rules
+
+- No passwords, access keys, or client secrets are committed. Azure workloads and
+  GitHub Actions authenticate with managed identity or OIDC.
+- Reports never query live control-plane state. They read a named collection run from
+  Cosmos, making each number reproducible.
+- Report blobs use time-based immutability. The policy remains unlocked in this
+  disposable assessment subscription so the environment can be torn down; production
+  would lock it only after retention and legal-hold requirements were approved.
+- GitHub Actions can plan and inspect but cannot apply infrastructure or write RBAC.
+- A `$10` monthly Azure budget alerts at 50%, 80%, and 100% forecast. Budgets are
+  alerts, not spending caps; teardown remains the controlling safeguard.
+
+## Validation status
+
+The evidence register distinguishes implemented configuration from observed runtime
+proof. A control is not marked proven until the corresponding Azure or GitHub artifact
+has been captured. Run `./self-check.sh` before submission for the mechanical checks.
+
+## Teardown
+
+Destroy in reverse dependency order: `06 → 04 → 03 → 02 → 01`, turn both Defender
+plans back to `Free`, remove the GitHub OIDC application, delete the state resource
+group, and cancel the Azure subscription. The public repository and redacted evidence
+remain as the assessment record.

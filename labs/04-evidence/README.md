@@ -85,6 +85,7 @@ completes, and a second `terraform plan` says `No changes.` — the convergence 
 cd ../../stages/03-evidence-store
 terraform init -backend-config=../../labs/03-foundation/backend.hcl
 export TF_VAR_state_storage_account=$(grep storage_account_name ../../labs/03-foundation/backend.hcl | cut -d'"' -f2)   # read from backend.hcl, no manual substitution
+export TF_VAR_deployer_object_id=$(az ad signed-in-user show --query id -o tsv)  # pin the human data-plane grantee; CI must not replace it
 terraform plan   # count the custody chain: Cosmos + 3 containers, WORM container,
                  # keyless storage, collector app, two scoped role grants
 terraform apply  # Cosmos takes a few minutes — read the collector code while you wait
@@ -191,9 +192,17 @@ run <uuid>: <N> documents at <ISO timestamp>
 ```
 
 > **`0 documents` is a valid, clean run** if Defender still hasn't finished its first
-> assessment cycle (up to ~24h on a brand-new subscription; see Lab 2). Nothing is
-> broken. Come back tomorrow, hit the same URL, and the count goes positive. The
-> nightly timer (05:00 UTC) will also do it for you.
+> assessment cycle (up to ~24h on a brand-new subscription; see Lab 2). The collector
+> still writes a `collectionRun` ledger record with `sourceAssessmentCount: 0`, so an
+> assessor can distinguish an operating timer with an empty upstream source from a
+> collector that never ran. Come back later and the count will go positive.
+
+Query the redaction-safe run history (scheduled and manual triggers remain explicit):
+
+```bash
+COSMOS_ENDPOINT=$(cd ../../stages/03-evidence-store && terraform output -raw cosmos_endpoint) \
+  python3 query_run_history.py
+```
 
 ### 6. The trace (the point of everything)
 

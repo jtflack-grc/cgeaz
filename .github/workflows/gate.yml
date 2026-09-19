@@ -19,6 +19,7 @@ env:
   ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
   TF_VAR_state_storage_account: ${{ vars.STATE_STORAGE_ACCOUNT }}
   TF_VAR_owner_email: ${{ vars.OWNER_EMAIL }}
+  TF_VAR_deployer_object_id: ${{ vars.DEPLOYER_OBJECT_ID }}
 
 jobs:
   gate:
@@ -30,8 +31,9 @@ jobs:
     if: ${{ vars.AZURE_CLIENT_ID != '' }}
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        stage: [01-foundation, 03-evidence-store, 04-reporting, 06-enforcement]
+        stage: [01-foundation, 02-activation, 03-evidence-store, 04-reporting, 06-enforcement]
     steps:
       - uses: actions/checkout@v4
 
@@ -43,6 +45,14 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
+      - name: write ephemeral backend configuration
+        run: |
+          cat > labs/03-foundation/backend.hcl <<EOF
+          resource_group_name  = "rg-grc-tfstate"
+          storage_account_name = "${TF_VAR_state_storage_account}"
+          container_name       = "tfstate"
+          EOF
+
       - name: terraform validate + plan
         working-directory: stages/${{ matrix.stage }}
         run: |
@@ -51,8 +61,13 @@ jobs:
           terraform plan -input=false -out=tf.plan
           terraform show -json tf.plan > plan.json
 
+      - name: install conftest 0.62.0
+        run: |
+          curl --fail --silent --show-error --location \
+            https://github.com/open-policy-agent/conftest/releases/download/v0.62.0/conftest_0.62.0_Linux_x86_64.tar.gz \
+            --output /tmp/conftest.tar.gz
+          tar --no-same-owner -xzf /tmp/conftest.tar.gz -C /tmp conftest
+          sudo install /tmp/conftest /usr/local/bin/conftest
+
       - name: OPA gate (conftest)
-        uses: instrumenta/conftest-action@master
-        with:
-          files: stages/${{ matrix.stage }}/plan.json
-          policy: policy
+        run: conftest test "stages/${{ matrix.stage }}/plan.json" --policy policy

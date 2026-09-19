@@ -1,0 +1,39 @@
+{
+  "format_version": "1.2",
+  "resource_changes": [
+    {
+      "address": "azurerm_storage_account.public_example",
+      "type": "azurerm_storage_account",
+      "name": "public_example",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "allow_nested_items_to_be_public": true,
+          "shared_access_key_enabled": true
+        }
+      }
+    },
+    {
+      "address": "azurerm_role_assignment.overprivileged",
+      "type": "azurerm_role_assignment",
+      "name": "overprivileged",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "role_definition_name": "Contributor"
+        }
+      }
+    },
+    {
+      "address": "azurerm_management_group_policy_assignment.no_identity",
+      "type": "azurerm_management_group_policy_assignment",
+      "name": "no_identity",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "name": "remediation-without-identity"
+        }
+      }
+    }
+  ]
+}

@@ -25,6 +25,16 @@ variable "tag_policy_effect" {
   }
 }
 
+variable "owner_tag_policy_effect" {
+  description = "Effect for the candidate-authored owner-accountability control. Audit supports onboarding; Deny is the target state."
+  type        = string
+  default     = "Audit"
+  validation {
+    condition     = contains(["Audit", "Deny", "Disabled"], var.owner_tag_policy_effect)
+    error_message = "owner_tag_policy_effect must be Audit, Deny, or Disabled."
+  }
+}
+
 variable "public_blob_policy_effect" {
   description = "Effect for the deny-public-blob-access policy. This one has earned Deny."
   type        = string

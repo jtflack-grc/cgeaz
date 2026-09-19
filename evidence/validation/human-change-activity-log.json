@@ -1,0 +1,10 @@
+[
+  {
+    "caller": "[REDACTED-HUMAN-OPERATOR]",
+    "correlationId": "c86ab3bd-5012-4339-92ef-4e7ed1bc79dc",
+    "operation": "Microsoft.Resources/subscriptions/resourcegroups/write",
+    "resourceId": "/subscriptions/[REDACTED-SUBSCRIPTION]/resourcegroups/rg-grc-tfstate",
+    "status": "Succeeded",
+    "timestamp": "2026-09-19T03:10:31.9891206Z"
+  }
+]

@@ -10,6 +10,17 @@ variable "environment" {
   default     = "dev"
 }
 
+variable "owner_email" {
+  description = "Accountable owner stamped into each collected evidence document."
+  type        = string
+}
+
+variable "collector_schedule" {
+  description = "Azure Functions NCRONTAB cadence. Fifteen minutes produces genuine scheduled run history during the bounded assessment window."
+  type        = string
+  default     = "0 */15 * * * *"
+}
+
 variable "state_resource_group" {
   description = "Resource group holding the Terraform state storage account (from bootstrap.sh)."
   type        = string
@@ -31,4 +42,9 @@ variable "functions_location" {
   description = "Region for the Function tier. Free-account consumption (Y1) quota is REGIONAL and zero in most US regions; centralus and westus3 had quota in validation. Probe with labs/00-setup/probe-quota.sh."
   type        = string
   default     = "centralus"
+}
+
+variable "deployer_object_id" {
+  description = "Immutable Entra object ID of the human operator receiving evidence data-plane access. Explicit so CI callers cannot replace the assignment."
+  type        = string
 }

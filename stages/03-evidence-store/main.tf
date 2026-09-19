@@ -15,7 +15,15 @@ resource "random_string" "suffix" {
 
 # --- Cosmos DB: the evidence database we OWN. Serverless; pennies at lab scale. ---
 
+#checkov:skip=CKV_AZURE_100:CMK infrastructure is outside the disposable lab boundary; platform encryption remains enabled.
+#checkov:skip=CKV_AZURE_101:Managed Functions require the public endpoint; authentication is Entra-only and local auth is disabled.
+#checkov:skip=CKV_AZURE_140:False positive against azurerm v4 local_authentication_enabled=false below.
+#checkov:skip=CKV_AZURE_99:Network restriction is accepted as a lab limitation; Entra data-plane RBAC provides authorization.
 resource "azurerm_cosmosdb_account" "evidence" {
+  #checkov:skip=CKV_AZURE_100:CMK infrastructure is outside the disposable assessment boundary.
+  #checkov:skip=CKV_AZURE_101:Consumption Functions require the public endpoint; Entra-only auth is enforced.
+  #checkov:skip=CKV_AZURE_140:False positive against azurerm v4 local_authentication_enabled=false.
+  #checkov:skip=CKV_AZURE_99:Network restriction is accepted as a lab limitation; Entra RBAC authorizes access.
   name                = "cosmos-grc-evidence-${random_string.suffix.result}"
   location            = var.location
   resource_group_name = local.evidence_rg
@@ -25,7 +33,8 @@ resource "azurerm_cosmosdb_account" "evidence" {
   # Identity-only access: no key-based auth against the evidence database.
   # local_authentication_disabled was deprecated in favour of local_authentication_enabled
   # (removed in azurerm v5.0); the boolean inverts, so disabled=true becomes enabled=false.
-  local_authentication_enabled = false
+  local_authentication_enabled       = false
+  access_key_metadata_writes_enabled = false
 
   capabilities {
     name = "EnableServerless"
@@ -78,7 +87,17 @@ resource "azurerm_cosmosdb_sql_container" "mappings" {
 
 # --- Evidence artifact storage: WORM reports container, zero shared keys. ---
 
+#checkov:skip=CKV_AZURE_59:Public network routing is required by consumption Functions; anonymous access and shared keys are disabled.
+#checkov:skip=CKV_AZURE_206:LRS is an explicit disposable-subscription cost decision; integrity comes from versioning and WORM.
+#checkov:skip=CKV_AZURE_33:Queue service is not used; evidence activity is covered by Azure Activity and policy diagnostics.
+#checkov:skip=CKV2_AZURE_33:Private endpoint networking is outside the disposable assessment boundary.
+#checkov:skip=CKV2_AZURE_1:Microsoft-managed encryption is accepted for this nonproduction evidence demonstration.
 resource "azurerm_storage_account" "evidence" {
+  #checkov:skip=CKV_AZURE_59:Public routing is required by Y1; anonymous access and shared keys are disabled.
+  #checkov:skip=CKV_AZURE_206:LRS is an explicit lab cost decision; WORM and versioning provide integrity.
+  #checkov:skip=CKV_AZURE_33:Queue service is unused; evidence activity uses Activity Log and policy diagnostics.
+  #checkov:skip=CKV2_AZURE_33:Private endpoint networking is outside the disposable assessment boundary.
+  #checkov:skip=CKV2_AZURE_1:Platform encryption is accepted for this nonproduction demonstration.
   name                     = "stgrcevid${random_string.suffix.result}"
   resource_group_name      = local.evidence_rg
   location                 = var.location
@@ -89,15 +108,24 @@ resource "azurerm_storage_account" "evidence" {
   # The store's front door has one kind of lock: identity.
   shared_access_key_enabled       = false
   allow_nested_items_to_be_public = false
+  https_traffic_only_enabled      = true
 
   blob_properties {
     versioning_enabled = true
+    delete_retention_policy {
+      days = 7
+    }
+    container_delete_retention_policy {
+      days = 7
+    }
   }
 
   tags = local.common_tags
 }
 
+#checkov:skip=CKV2_AZURE_21:Blob reads are evidence-consumer actions; control-plane diagnostics and immutable versions provide the required audit story.
 resource "azurerm_storage_container" "reports" {
+  #checkov:skip=CKV2_AZURE_21:Control-plane diagnostics and immutable versions provide the report audit story.
   name               = "reports"
   storage_account_id = azurerm_storage_account.evidence.id
 }
@@ -114,12 +142,11 @@ resource "azurerm_storage_container_immutability_policy" "reports_worm" {
 
 # The deployer needs blob DATA-plane access to verify WORM behavior and upload seeds —
 # Owner is control-plane only (the 01_02 lesson, in production form).
-data "azurerm_client_config" "current" {}
 
 resource "azurerm_role_assignment" "deployer_blob_data" {
   scope                = azurerm_storage_account.evidence.id
   role_definition_name = "Storage Blob Data Contributor"
-  principal_id         = data.azurerm_client_config.current.object_id
+  principal_id         = var.deployer_object_id
 }
 
 # The deployer also seeds the frameworks/mappings containers (labs/04's seed script),
@@ -128,6 +155,6 @@ resource "azurerm_cosmosdb_sql_role_assignment" "deployer_cosmos_write" {
   resource_group_name = local.evidence_rg
   account_name        = azurerm_cosmosdb_account.evidence.name
   role_definition_id  = "${azurerm_cosmosdb_account.evidence.id}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002"
-  principal_id        = data.azurerm_client_config.current.object_id
+  principal_id        = var.deployer_object_id
   scope               = azurerm_cosmosdb_account.evidence.id
 }

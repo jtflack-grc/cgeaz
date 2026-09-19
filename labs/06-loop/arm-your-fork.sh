@@ -8,7 +8,8 @@
 # Why variables and not secrets? With OIDC there is no credential to protect —
 # client/tenant/subscription IDs are identifiers, and possessing them grants nothing
 # without a matching federation subject. The security boundary is the federation:
-# it names YOUR fork, so only workflows running in YOUR fork can exchange tokens.
+# it binds both the names and immutable GitHub IDs of YOUR fork, so only workflows
+# running in that exact repository can exchange tokens.
 #
 # Why never arm the upstream repo? On a public repo, the pull_request OIDC subject
 # matches PRs from ANY fork, and pull_request runs the workflow file AS MODIFIED BY
@@ -21,6 +22,7 @@ GH_USER="${1:?usage: ./arm-your-fork.sh <your-github-username-or-org>}"
 REPO="${2:-cgeaz}"
 SUB_ID=$(az account show --query id -o tsv)
 TENANT_ID=$(az account show --query tenantId -o tsv)
+DEPLOYER_OBJECT_ID=$(az ad signed-in-user show --query id -o tsv)
 
 echo ">> App registration: github-${REPO}-${GH_USER}"
 APP_ID=$(az ad app create --display-name "github-${REPO}-${GH_USER}" --query appId -o tsv)
@@ -28,8 +30,12 @@ APP_OBJ=$(az ad app show --id "$APP_ID" --query id -o tsv)
 az ad sp create --id "$APP_ID" --output none 2>/dev/null || true
 SP_ID=$(az ad sp show --id "$APP_ID" --query id -o tsv)
 
-echo ">> Federated credentials for repo:${GH_USER}/${REPO} (pull_request + main)"
-for sub in "repo:${GH_USER}/${REPO}:pull_request|pr" "repo:${GH_USER}/${REPO}:ref:refs/heads/main|main"; do
+GH_OWNER_ID=$(gh api "repos/${GH_USER}/${REPO}" --jq '.owner.id')
+GH_REPO_ID=$(gh api "repos/${GH_USER}/${REPO}" --jq '.id')
+OIDC_REPOSITORY="${GH_USER}@${GH_OWNER_ID}/${REPO}@${GH_REPO_ID}"
+
+echo ">> Federated credentials for repo:${OIDC_REPOSITORY} (pull_request + main)"
+for sub in "repo:${OIDC_REPOSITORY}:pull_request|pr" "repo:${OIDC_REPOSITORY}:ref:refs/heads/main|main"; do
   SUBJECT="${sub%|*}"; NAME="${sub#*|}"
   az ad app federated-credential create --id "$APP_OBJ" --parameters "{
     \"name\": \"${REPO}-${NAME}\",
@@ -39,19 +45,87 @@ for sub in "repo:${GH_USER}/${REPO}:pull_request|pr" "repo:${GH_USER}/${REPO}:re
   }" --output none 2>/dev/null || echo "   (${REPO}-${NAME} already exists)"
 done
 
-echo ">> Roles: Contributor at mg-grc (plan/refresh needs list-keys + config reads;"
-echo "   Contributor cannot write RBAC) + blob data on the state RG"
+echo ">> Roles: read-only planning at mg-grc + resource-scoped sensitive refresh actions"
+ROLE_NAME="CGE-AZ Terraform Plan Reader"
+ROLE_ID=$(az role definition list --name "$ROLE_NAME" --query '[0].name' -o tsv)
+if [ -z "$ROLE_ID" ]; then
+  ROLE_FILE=$(mktemp)
+  cat > "$ROLE_FILE" <<EOF
+{
+  "Name": "$ROLE_NAME",
+  "Description": "Read governance resources for Terraform plans without write or secret-retrieval actions.",
+  "Actions": [
+    "*/read"
+  ],
+  "NotActions": [],
+  "DataActions": [],
+  "NotDataActions": [],
+  "AssignableScopes": ["/providers/Microsoft.Management/managementGroups/mg-grc"]
+}
+EOF
+  ROLE_ID=$(az role definition create --role-definition "$ROLE_FILE" --query name -o tsv)
+  rm -f "$ROLE_FILE"
+fi
 az role assignment create --assignee-object-id "$SP_ID" --assignee-principal-type ServicePrincipal \
-  --role "Contributor" --scope "/providers/Microsoft.Management/managementGroups/mg-grc" --output none 2>/dev/null || true
+  --role "$ROLE_ID" --scope "/providers/Microsoft.Management/managementGroups/mg-grc" --output none 2>/dev/null || true
+
+# The AzureRM provider must refresh the two Functions' runtime configuration and the
+# Cosmos account's generated credentials. Those operations can disclose storage keys,
+# app settings, or database credentials, so assign them only on the exact resources.
+SENSITIVE_ROLE_NAME="CGE-AZ Terraform Sensitive Refresh Reader"
+SENSITIVE_ROLE_ID=$(az role definition list --name "$SENSITIVE_ROLE_NAME" --query '[0].name' -o tsv)
+if [ -z "$SENSITIVE_ROLE_ID" ]; then
+  SENSITIVE_ROLE_FILE=$(mktemp)
+  cat > "$SENSITIVE_ROLE_FILE" <<EOF
+{
+  "Name": "$SENSITIVE_ROLE_NAME",
+  "Description": "Resource-scoped provider refresh actions for Function and Cosmos plumbing; never assign above an individual resource.",
+  "Actions": [
+    "Microsoft.Storage/storageAccounts/listKeys/action",
+    "Microsoft.Web/sites/config/list/action",
+    "Microsoft.DocumentDB/databaseAccounts/listKeys/action",
+    "Microsoft.DocumentDB/databaseAccounts/readonlykeys/action",
+    "Microsoft.DocumentDB/databaseAccounts/listConnectionStrings/action"
+  ],
+  "NotActions": [],
+  "DataActions": [],
+  "NotDataActions": [],
+  "AssignableScopes": ["/providers/Microsoft.Management/managementGroups/mg-grc"]
+}
+EOF
+  SENSITIVE_ROLE_ID=$(az role definition create --role-definition "$SENSITIVE_ROLE_FILE" --query name -o tsv)
+  rm -f "$SENSITIVE_ROLE_FILE"
+fi
+
+mapfile -t SENSITIVE_RESOURCE_IDS < <(
+  az storage account list --resource-group rg-grc-evidence-dev \
+    --query "[?starts_with(name, 'stgrcfunc') || starts_with(name, 'stgrcrpt')].id" -o tsv
+  az functionapp list --resource-group rg-grc-evidence-dev --query '[].id' -o tsv
+  az cosmosdb list --resource-group rg-grc-evidence-dev \
+    --query "[?starts_with(name, 'cosmos-grc-evidence')].id" -o tsv
+)
+
+if [ "${#SENSITIVE_RESOURCE_IDS[@]}" -ne 5 ]; then
+  echo "Expected two runtime storage accounts, two Function Apps, and one Cosmos account; refusing a broader fallback." >&2
+  exit 1
+fi
+
+for RESOURCE_ID in "${SENSITIVE_RESOURCE_IDS[@]}"; do
+  az role assignment create --assignee-object-id "$SP_ID" --assignee-principal-type ServicePrincipal \
+    --role "$SENSITIVE_ROLE_ID" --scope "$RESOURCE_ID" --output none 2>/dev/null || true
+done
 az role assignment create --assignee-object-id "$SP_ID" --assignee-principal-type ServicePrincipal \
   --role "Storage Blob Data Contributor" \
   --scope "/subscriptions/$SUB_ID/resourceGroups/rg-grc-tfstate" --output none 2>/dev/null || true
+az role assignment create --assignee-object-id "$SP_ID" --assignee-principal-type ServicePrincipal \
+  --role "Storage Blob Data Reader" \
+  --scope "/subscriptions/$SUB_ID/resourceGroups/rg-grc-evidence-dev" --output none 2>/dev/null || true
 
 STATE_SA=$(grep storage_account_name "$(dirname "$0")/../03-foundation/backend.hcl" 2>/dev/null | tr -d ' "' | cut -d= -f2 || echo "<from backend.hcl>")
 
 cat <<EOF
 
-Done. Add these five VARIABLES (not secrets — see header comment) in YOUR fork:
+Done. Add these six VARIABLES (not secrets — see header comment) in YOUR fork:
 Settings -> Secrets and variables -> Actions -> Variables -> New repository variable
 
   AZURE_CLIENT_ID        $APP_ID
@@ -59,6 +133,7 @@ Settings -> Secrets and variables -> Actions -> Variables -> New repository vari
   AZURE_SUBSCRIPTION_ID  $SUB_ID
   STATE_STORAGE_ACCOUNT  $STATE_SA
   OWNER_EMAIL            <your email>
+  DEPLOYER_OBJECT_ID     $DEPLOYER_OBJECT_ID
 
 Then enable the two workflows in your fork's Actions tab. Never add these to the
 upstream GRCEngClub/cgeaz repo — its workflows are intentionally unarmed.
