@@ -1,0 +1,8 @@
+{
+  "resource": "rg-grc-sandbox-dev",
+  "tags": {
+    "env": "dev",
+    "owner": "[REDACTED-HUMAN-OPERATOR]",
+    "purpose": "cge-az-labs"
+  }
+}

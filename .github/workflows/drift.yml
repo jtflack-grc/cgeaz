@@ -40,6 +40,8 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
 
       - uses: azure/login@v2
         with:
@@ -71,7 +73,10 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const body = fs.readFileSync('stages/${{ matrix.stage }}/plan-output.txt', 'utf8');
+            const raw = fs.readFileSync('stages/${{ matrix.stage }}/plan-output.txt', 'utf8');
+            const body = raw
+              .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '[REDACTED-GUID]')
+              .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[REDACTED-EMAIL]');
             await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -79,3 +84,7 @@ jobs:
               body: 'Reality no longer matches code. This is a change-management finding that generated itself.\n\n```\n' + body.slice(0, 60000) + '\n```',
               labels: ['drift'],
             });
+
+      - name: fail on Terraform plan error
+        if: steps.plan.outputs.exitcode != '0' && steps.plan.outputs.exitcode != '2'
+        run: exit 1

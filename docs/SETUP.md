@@ -16,6 +16,25 @@ account — see [VALIDATION-LOG.md](VALIDATION-LOG.md) for the receipts.
 - **A GitHub account** and `git`.
 - Domain 6 also uses **conftest** (`brew install conftest`).
 
+## 0b. Already an Azure customer? (no $200 credit for you — here's the real cost)
+
+The free-account credit is for brand-new accounts only. If your card is already
+registered with Azure (first learner to hit this: launch day), you run the labs
+pay-as-you-go — and that is fine, because the pipeline is deliberately cheap:
+
+- The **Defender for Cloud 30-day trial** is per subscription, per plan, on first
+  enablement — you still get it. Consider a fresh subscription in your existing
+  tenant for a clean sandbox.
+- Everything else is serverless or consumption tier: Cosmos DB serverless,
+  Y1 Functions (the free monthly grant usually covers the course), LRS storage,
+  and a small Log Analytics ingest. Torn down on schedule, the whole course
+  typically lands under a few dollars.
+- The budget alert in Lab 1 is not optional for you — it's your only spending
+  protection, since pay-as-you-go has no free-account safety net.
+- Run history for the capstone: keep the timers alive until you submit, tear
+  down after the score comes back. The grader reads run history from your
+  evidence store, so submit first, then tear down.
+
 ## 1. Timing strategy — read this before creating anything
 
 Two 30-day clocks matter, and you start both:
@@ -105,6 +124,11 @@ teardown is `terraform destroy` per stage, in reverse order (06 → 04 → 03 �
 
 ## 7. Windows / Git Bash notes
 
+> Setting up a Windows machine from scratch (Azure CLI, Terraform, Python,
+> conftest, PowerShell-native provider registration)? Follow
+> **[SETUP-WINDOWS.md](SETUP-WINDOWS.md)** — a launch-day learner contribution —
+> then come back here for the Git Bash quirks below.
+
 The labs are written for a POSIX shell. On Windows, Git Bash covers almost everything,
 with three things to know up front (each lab repeats the note where it bites):
 
@@ -127,6 +151,41 @@ WSL (Ubuntu) needs none of the above and matches the validated environment most
 closely; if you already have it, prefer it.
 
 You're ready. Start with `labs/01-sandbox`.
+
+## 8. Linux notes — rolling-release distros (Kali, Arch, etc.)
+
+Two real failure modes from a launch-day learner on Kali (thank you, Lee), both
+Python packaging problems rather than Azure ones:
+
+1. **`az` breaks with `ModuleNotFoundError: No module named
+   'azure.mgmt.resource...'`** — a system-wide `pip install` clobbered a
+   dependency the apt-installed CLI needed (the `azure` namespace package is
+   shared across ~300 azure-mgmt-* packages, so whichever install wins,
+   everyone gets). Don't reconcile versions in system site-packages; give the
+   CLI its own venv:
+
+   ```bash
+   python3 -m venv ~/.local/share/az-cli-venv
+   ~/.local/share/az-cli-venv/bin/pip install --upgrade pip
+   ~/.local/share/az-cli-venv/bin/pip install "azure-cli==2.90.0"
+   ln -sf ~/.local/share/az-cli-venv/bin/az ~/.local/bin/az
+   ```
+
+   (Avoid `pipx install azure-cli` — it has resolved to an ancient release and
+   its launcher shells out to the system `python`, reintroducing the conflict.)
+
+2. **The venv later breaks with `No module named 'azure'`** — rolling-release
+   distros repoint `/usr/bin/python3` on ordinary upgrades, and a venv's
+   `bin/python3` is a symlink to that movable target, so its site-packages
+   directory stops matching the interpreter version. Pin the venv to the exact
+   interpreter it was built with:
+
+   ```bash
+   ln -sf /usr/bin/python3.13 ~/.local/share/az-cli-venv/bin/python3
+   ```
+
+   On fixed-release distros (Debian stable, Ubuntu LTS) this doesn't happen —
+   the default python3 doesn't move between releases.
 
 ## Appendix: how the CI workflows get credentials
 
