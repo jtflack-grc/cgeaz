@@ -1,0 +1,9 @@
+{
+  "resource": "rg-grc-sandbox-dev",
+  "tags": {
+    "cgeaz_drift_probe": "controlled-out-of-band-change",
+    "env": "dev",
+    "owner": "[REDACTED-HUMAN-OPERATOR]",
+    "purpose": "cge-az-labs"
+  }
+}
