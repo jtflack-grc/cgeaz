@@ -1,0 +1,65 @@
+[
+  {
+    "ActivityStatusValue": "Success",
+    "Caller": "[REDACTED-HUMAN-OPERATOR]",
+    "CorrelationId": "17e7597c-836a-4457-b0ac-312f4a7b6941",
+    "OperationNameValue": "MICROSOFT.WEB/SITES/CONFIG/WRITE",
+    "ResourceId": "",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-09-19T04:11:55.6529531Z"
+  },
+  {
+    "ActivityStatusValue": "Success",
+    "Caller": "[REDACTED-HUMAN-OPERATOR]",
+    "CorrelationId": "8e9c9403-b49f-48f2-960f-bda8d8b5c5d8",
+    "OperationNameValue": "MICROSOFT.WEB/SITES/CONFIG/WRITE",
+    "ResourceId": "",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-09-19T04:11:48.4287689Z"
+  },
+  {
+    "ActivityStatusValue": "Success",
+    "Caller": "[REDACTED-HUMAN-OPERATOR]",
+    "CorrelationId": "caabc897-8fc5-4657-9110-d78983b4bdd1",
+    "OperationNameValue": "MICROSOFT.STORAGE/STORAGEACCOUNTS/DELETE",
+    "ResourceId": "",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-09-19T04:06:18.7261369Z"
+  },
+  {
+    "ActivityStatusValue": "Success",
+    "Caller": "[REDACTED-HUMAN-OPERATOR]",
+    "CorrelationId": "b6e8e82b-d59b-4a3f-bdbf-8d5037d90343",
+    "OperationNameValue": "MICROSOFT.RESOURCES/SUBSCRIPTIONS/RESOURCEGROUPS/WRITE",
+    "ResourceId": "",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-09-19T04:00:32.6833582Z"
+  },
+  {
+    "ActivityStatusValue": "Success",
+    "Caller": "[REDACTED-HUMAN-OPERATOR]",
+    "CorrelationId": "caabc897-8fc5-4657-9110-d78983b4bdd1",
+    "OperationNameValue": "MICROSOFT.STORAGE/STORAGEACCOUNTS/DELETE",
+    "ResourceId": "",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-09-19T03:56:19.2070604Z"
+  },
+  {
+    "ActivityStatusValue": "Success",
+    "Caller": "[REDACTED-HUMAN-OPERATOR]",
+    "CorrelationId": "76790c68-c9d2-48ce-b6f2-31dd95ee213c",
+    "OperationNameValue": "MICROSOFT.STORAGE/STORAGEACCOUNTS/WRITE",
+    "ResourceId": "",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-09-19T03:35:07.0857256Z"
+  },
+  {
+    "ActivityStatusValue": "Success",
+    "Caller": "[REDACTED-HUMAN-OPERATOR]",
+    "CorrelationId": "c86ab3bd-5012-4339-92ef-4e7ed1bc79dc",
+    "OperationNameValue": "MICROSOFT.RESOURCES/SUBSCRIPTIONS/RESOURCEGROUPS/WRITE",
+    "ResourceId": "",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-09-19T03:10:31.9891206Z"
+  }
+]

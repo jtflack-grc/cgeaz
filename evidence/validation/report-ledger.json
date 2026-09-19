@@ -1,0 +1,22 @@
+{
+  "sourceRunId": "39fca055-59a7-4c31-81d6-8c672e2c264e",
+  "sourceRunPresentInScheduledHistory": true,
+  "hashAlgorithm": "SHA-256",
+  "artifacts": [
+    {
+      "type": "POA&M JSON",
+      "path": "poam/2026/09/poam-2026-09-19T030606Z-39fca055.json",
+      "sha256": "0e4d77c362bfe13d168a46d136fdcdfb11653a5d01f89031a11a4e950edcfee4"
+    },
+    {
+      "type": "POA&M XLSX",
+      "path": "poam/2026/09/poam-2026-09-19T030606Z-39fca055.xlsx",
+      "sha256": "5fabadb4eea1b53ff02fba5140b7721d9fc3b4f4584fc0ac593c5b03a4cfb6e9"
+    },
+    {
+      "type": "SAR Markdown",
+      "path": "sar/2026/09/sar-2026-09-19T030607Z-39fca055.md",
+      "sha256": "f9326ed42d4319fa33315b9cace711a8dc975ad2255f01497cc0fb34bba69291"
+    }
+  ]
+}
