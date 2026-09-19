@@ -1,0 +1,20 @@
+[
+  {
+    "timestamp": "2026-09-19T03:35:07.0857256Z",
+    "operation": "Microsoft.Storage/storageAccounts/write",
+    "status": "Succeeded",
+    "caller": "[REDACTED-HUMAN-OPERATOR]",
+    "remediationIdentityMatched": false,
+    "resourceId": "/subscriptions/[REDACTED-SUBSCRIPTION]/resourcegroups/rg-grc-sandbox-dev/providers/Microsoft.Storage/storageAccounts/stgrcremed439520860",
+    "correlationId": "76790c68-c9d2-48ce-b6f2-31dd95ee213c"
+  },
+  {
+    "timestamp": "2026-09-19T03:48:52.3545818Z",
+    "operation": "Microsoft.Storage/storageAccounts/write",
+    "status": "Succeeded",
+    "caller": "[REDACTED-REMEDIATION-IDENTITY]",
+    "remediationIdentityMatched": true,
+    "resourceId": "/subscriptions/[REDACTED-SUBSCRIPTION]/resourceGroups/rg-grc-sandbox-dev/providers/Microsoft.Storage/storageAccounts/stgrcremed439520860",
+    "correlationId": "b1b35211-75e8-4a59-bbdf-b29a173c3887"
+  }
+]
