@@ -43,3 +43,8 @@ variable "functions_location" {
   type        = string
   default     = "centralus"
 }
+
+variable "deployer_object_id" {
+  description = "Immutable Entra object ID of the human operator receiving evidence data-plane access. Explicit so CI callers cannot replace the assignment."
+  type        = string
+}
