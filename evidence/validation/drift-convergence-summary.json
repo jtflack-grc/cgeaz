@@ -1,0 +1,7 @@
+{
+  "workflowRun": "35421642014",
+  "openDriftIssuesBefore": 1,
+  "openDriftIssuesAfter": 1,
+  "newIssuesCreated": 0,
+  "expectedResult": "all Terraform plans converged; no new drift issue"
+}

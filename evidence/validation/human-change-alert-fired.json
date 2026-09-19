@@ -1,0 +1,11 @@
+[
+  {
+    "alertRule": "/subscriptions/[REDACTED-SUBSCRIPTION]/resourceGroups/rg-grc-sandbox-dev/providers/microsoft.insights/scheduledqueryrules/alert-cge-az-human-change",
+    "severity": "Sev2",
+    "signalType": "Log",
+    "monitorCondition": "Fired",
+    "firedDateTime": "2026-09-19T04:18:54.6385055Z",
+    "lastModifiedDateTime": "2026-09-19T04:18:54.6385055Z",
+    "targetResource": "/subscriptions/[REDACTED-SUBSCRIPTION]/resourcegroups/rg-grc-sandbox-dev/providers/microsoft.operationalinsights/workspaces/law-grc-sandbox"
+  }
+]
